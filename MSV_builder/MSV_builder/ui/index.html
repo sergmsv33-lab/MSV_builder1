@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 11px;
+      padding: 10px;
+      background: #f5f5f5;
+      color: #333;
+      margin: 0;
+    }
+    #container { display: flex; gap: 10px; }
+    #left-panel { flex: 1; min-width: 320px; }
+    #right-panel {
+      width: 370px;
+      background: white;
+      border: 1px solid #bbb;
+      border-radius: 4px;
+      padding: 10px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .section {
+      margin-bottom: 8px;
+      border: 1px solid #bbb;
+      border-radius: 4px;
+      background: white;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .section-header {
+      background: linear-gradient(to bottom, #f8f8f8, #e8e8e8);
+      padding: 8px 10px;
+      cursor: pointer;
+      font-weight: bold;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #ccc;
+      user-select: none;
+    }
+    .section-header:hover { background: linear-gradient(to bottom, #e8e8e8, #d8d8d8); }
+    .section-content { padding: 10px; display: none; }
+    .section.active .section-content { display: block; }
+    .row { display: flex; align-items: center; margin-bottom: 8px; }
+    .row:last-child { margin-bottom: 0; }
+    .row label { flex: 1; margin-right: 10px; font-weight: 500; }
+    .row input, .row select {
+      width: 105px;
+      padding: 4px 6px;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+      font-size: 11px;
+    }
+    .row input:focus, .row select:focus {
+      outline: none;
+      border-color: #3498db;
+      box-shadow: 0 0 0 2px rgba(52,152,219,0.1);
+    }
+    .row input.error { border-color: #e74c3c; background: #ffeaea; }
+    .buttons {
+      margin-top: 15px;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #ddd;
+    }
+    button {
+      padding: 8px 16px;
+      cursor: pointer;
+      font-weight: bold;
+      border-radius: 4px;
+      border: none;
+      font-size: 11px;
+      transition: all 0.2s;
+    }
+    .btn-ok { background: #27ae60; color: white; }
+    .btn-ok:hover { background: #229954; transform: translateY(-1px); box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+    .btn-cancel { background: #e74c3c; color: white; }
+    .btn-cancel:hover { background: #c0392b; transform: translateY(-1px); box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+    .btn-cutting { background: #3498db; color: white; }
+    .btn-cutting:hover { background: #2980b9; }
+    .arrow { font-size: 10px; transition: transform 0.3s; }
+    .section.active .arrow { transform: rotate(180deg); }
+    .preview-container { margin-bottom: 10px; }
+    .preview-canvas {
+      width: 100%;
+      height: 190px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background: #fafafa;
+      display: block;
+    }
+    .preview-title {
+      font-weight: bold;
+      margin-bottom: 6px;
+      font-size: 11px;
+      color: #2c3e50;
+      text-align: center;
+    }
+    #validation-errors {
+      background: #ffeaea;
+      border: 1px solid #e74c3c;
+      border-radius: 4px;
+      padding: 8px;
+      margin-bottom: 10px;
+      display: none;
+      font-size: 10px;
+    }
+    #validation-errors.show { display: block; }
+    #validation-errors ul { margin: 5px 0; padding-left: 20px; }
+    #validation-errors li { color: #c0392b; margin: 3px 0; }
+    .info-box {
+      background: #e8f4f8;
+      border: 1px solid #3498db;
+      border-radius: 4px;
+      padding: 7px;
+      margin-top: 10px;
+      font-size: 9px;
+      line-height: 1.18;
+    }
+    .info-box strong { color: #2980b9; display: block; margin-bottom: 3px; }
+    #dims-text { display: block; line-height: 1.18; }
+    .subsection-title {
+      margin: 10px 0 7px;
+      padding: 5px 6px;
+      background: #eef3f7;
+      border-left: 3px solid #3498db;
+      font-size: 10px;
+      font-weight: 700;
+      color: #2c3e50;
+    }
+  </style>
+</head>
+<body>
+  <div id="validation-errors">
+    <strong>⚠ Ошибки валидации:</strong>
+    <ul id="error-list"></ul>
+  </div>
+
+  <div id="container">
+    <div id="left-panel">
+      <div class="section active">
+        <div class="section-header" onclick="toggleSection(this)">
+          ОСНОВНЫЕ ПАРАМЕТРЫ <span class="arrow">▼</span>
+        </div>
+        <div class="section-content">
+          <div class="row"><label>Ширина матраса (мм)</label><input type="number" id="mw" onchange="updatePreview()"></div>
+          <div class="row"><label>Длина матраса (мм)</label><input type="number" id="ml" onchange="updatePreview()"></div>
+          <div class="row"><label>Отступ от матраса (мм)</label><input type="number" id="mo" onchange="updatePreview()"></div>
+          <div class="row"><label>Высота царг (мм)</label><input type="number" id="th" onchange="updatePreview()"></div>
+          <div class="row"><label>Толщина МДФ (мм)</label><input type="number" id="tt" onchange="updatePreview()"></div>
+          <div class="row"><label>Высота ножек (мм)</label><input type="number" id="lh" onchange="updatePreview()"></div>
+          <div class="row"><label>Утопление матраса (мм)</label><input type="number" id="mr" onchange="updatePreview()"></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-header" onclick="toggleSection(this)">
+          КОНСТРУКЦИЯ ЦАРГ <span class="arrow">▼</span>
+        </div>
+        <div class="section-content">
+          <div class="row"><label>Тип основания</label><select id="st" onchange="updatePreview()"><option value="Центральная царга">Центральная царга</option><option value="Ламели">Ламели</option></select></div>
+          <div class="row"><label>Ориентация центр. царги</label><select id="co" onchange="updatePreview()"><option value="Вдоль">Вдоль</option><option value="Поперек">Поперек</option></select></div>
+          <div class="row"><label>Низ центр. царги</label><select id="ch" onchange="updatePreview()"><option value="До пола">До пола</option><option value="В уровень боковых царг">В уровень боковых царг</option></select></div>
+          <div class="row"><label>Высота центр. царги (мм)</label><input type="number" id="cch" onchange="updatePreview()"></div>
+          <div class="row"><label>Двойные царги</label><select id="dt" onchange="updatePreview()"><option value="Нет">Нет</option><option value="Да">Да</option></select></div>
+          <div class="row"><label>Задняя царга у спинки</label><select id="rf" onchange="updatePreview()"><option value="По высоте царг">По высоте царг</option><option value="До пола">До пола</option></select></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-header" onclick="toggleSection(this)">
+          ИЗГОЛОВЬЕ (СПИНКА) <span class="arrow">▼</span>
+        </div>
+        <div class="section-content">
+          <div class="row"><label>Строить спинку?</label><select id="hb" onchange="updatePreview()"><option value="Да">Да</option><option value="Нет">Нет</option></select></div>
+          <div class="row"><label>Высота спинки (мм)</label><input type="number" id="hh" onchange="updatePreview()"></div>
+          <div class="row"><label>Толщина спинки (мм)</label><input type="number" id="ht" onchange="updatePreview()"></div>
+          <div class="row"><label>Выступы спинки (мм)</label><input type="number" id="he" onchange="updatePreview()"></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-header" onclick="toggleSection(this)">
+          БОКОВАЯ СПИНКА <span class="arrow">▼</span>
+        </div>
+        <div class="section-content">
+          <div class="row"><label>Строить боковую спинку?</label><select id="shb" onchange="updatePreview()"><option value="Нет">Нет</option><option value="Да">Да</option></select></div>
+          <div class="row"><label>Положение</label><select id="shp" onchange="updatePreview()"><option value="Слева">Слева</option><option value="Справа">Справа</option></select></div>
+          <div class="row"><label>Высота (мм)</label><input type="number" id="shh" onchange="updatePreview()"></div>
+          <div class="row"><label>Толщина (мм)</label><input type="number" id="sht" onchange="updatePreview()"></div>
+          <div class="row"><label>Выступ спереди (мм)</label><input type="number" id="sef" onchange="updatePreview()"></div>
+          <div class="row"><label>Выступ сзади (мм)</label><input type="number" id="seb" onchange="updatePreview()"></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-header" onclick="toggleSection(this)">
+          ДНО И ОПОРЫ <span class="arrow">▼</span>
+        </div>
+        <div class="section-content">
+          <div class="row"><label>Наличие дна?</label><select id="hbt" onchange="updatePreview()"><option value="Да">Да</option><option value="Нет">Нет</option></select></div>
+          <div class="row"><label>Отступ дна (мм)</label><input type="number" id="bo" onchange="updatePreview()"></div>
+          <div class="row"><label>Толщина дна (мм)</label><input type="number" id="bt" onchange="updatePreview()"></div>
+
+          <div class="subsection-title">Бруски для дна</div>
+          <div class="row"><label>Длина бруска для дна (мм)</label><input type="number" id="bs_l" onchange="updatePreview()"></div>
+          <div class="row"><label>Высота бруска для дна (мм)</label><input type="number" id="bs_h" onchange="updatePreview()"></div>
+          <div class="row"><label>Толщина бруска для дна (мм)</label><input type="number" id="bs_t" onchange="updatePreview()"></div>
+
+          <div class="subsection-title">Опорные бруски матраса</div>
+          <div class="row"><label>Опорные бруски матраса</label><select id="as" onchange="updatePreview()"><option value="Да">Да</option><option value="Нет">Нет</option></select></div>
+          <div class="row"><label>Длина опоры (мм)</label><input type="number" id="ms_l" onchange="updatePreview()"></div>
+          <div class="row"><label>Высота опоры (мм)</label><input type="number" id="ms_h" onchange="updatePreview()"></div>
+          <div class="row"><label>Толщина опоры (мм)</label><input type="number" id="ms_t" onchange="updatePreview()"></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-header" onclick="toggleSection(this)">
+          ФУРНИТУРА <span class="arrow">▼</span>
+        </div>
+        <div class="section-content">
+          <div class="row"><label>Стяжка уголки</label><select id="af" onchange="updatePreview()"><option value="Да">Да</option><option value="Нет">Нет</option></select></div>
+        </div>
+      </div>
+
+      <div class="buttons">
+        <button class="btn-cutting" onclick="generateCuttingList()">📋 Карта раскроя</button>
+        <button class="btn-cancel" onclick="sketchup.cancel()">Отмена</button>
+        <button class="btn-ok" onclick="submitForm()">%%SUBMIT_LABEL%%</button>
+      </div>
+    </div>
+
+    <div id="right-panel">
+      <div class="preview-container">
+        <div class="preview-title">📐 Вид сверху</div>
+        <canvas id="preview-top" class="preview-canvas"></canvas>
+      </div>
+      <div class="preview-container">
+        <div class="preview-title">📏 Вид сбоку</div>
+        <canvas id="preview-side" class="preview-canvas"></canvas>
+      </div>
+      <div class="info-box" id="dimensions-info">
+        <strong>Параметры конструкции:</strong>
+        <span id="dims-text">—</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const initialData = %%INITIAL_DATA%%;
+    const fields = ['mw','ml','mo','th','tt','lh','mr','st','co','ch','cch','dt','rf','hb','hh','ht','he','shb','shp','shh','sht','sef','seb','hbt','bo','bt','bs_l','bs_h','bs_t','as','ms_l','ms_h','ms_t','af'];
+
+    fields.forEach((field) => {
+      const el = document.getElementById(field);
+      if (el && initialData[field] !== undefined) {
+        el.value = initialData[field];
+      }
+    });
+
+    if (!document.getElementById('cch').value) {
+      const lh = Number(document.getElementById('lh').value) || 0;
+      const th = Number(document.getElementById('th').value) || 0;
+      document.getElementById('cch').value = 250;
+    }
+
+    function toggleSection(header) {
+      header.parentElement.classList.toggle('active');
+    }
+
+    function getCurrentParams() {
+      const params = {};
+      fields.forEach((field) => {
+        const el = document.getElementById(field);
+        if (el) {
+          params[field] = el.type === 'number' ? parseFloat(el.value) || 0 : el.value;
+        }
+      });
+      return params;
+    }
+
+    function validateParams(params) {
+      const errors = [];
+      const fieldNames = {
+        mw: 'Ширина матраса', ml: 'Длина матраса', th: 'Высота царг',
+        tt: 'Толщина МДФ', lh: 'Высота ножек', hh: 'Высота спинки',
+        ht: 'Толщина спинки', shh: 'Высота боковой спинки',
+        sht: 'Толщина боковой спинки', bs_l: 'Длина бруска',
+        bs_h: 'Высота бруска для дна', bs_t: 'Толщина бруска для дна',
+        ms_l: 'Длина опоры матраса', ms_h: 'Высота опоры матраса',
+        ms_t: 'Толщина опоры матраса', cch: 'Высота центр. царги'
+      };
+
+      ['mw','ml','th','tt','lh'].forEach((key) => {
+        if (!params[key] || params[key] === 0) {
+          errors.push(`Не указано значение: ${fieldNames[key]}`);
+        }
+      });
+
+      ['mw','ml','th','tt','lh','hh','ht','shh','sht','bs_l','bs_h','bs_t','ms_l','ms_h','ms_t'].forEach((key) => {
+        if (params[key] && params[key] <= 0) {
+          errors.push(`${fieldNames[key]} должно быть больше нуля`);
+        }
+      });
+
+      if (params.st === 'Центральная царга' && (!params.cch || params.cch <= 0)) {
+        errors.push('Высота центр. царги должна быть больше нуля');
+      }
+      if (params.mw && params.mw < 500) errors.push('Ширина матраса слишком мала (минимум 500 мм)');
+      if (params.ml && params.ml < 1000) errors.push('Длина матраса слишком мала (минимум 1000 мм)');
+      if (params.tt && params.tt < 6) errors.push('Толщина МДФ слишком мала (минимум 6 мм)');
+      if (params.th && params.th < 100) errors.push('Высота царг слишком мала (минимум 100 мм)');
+      if (params.mr && params.th && params.mr >= params.th) {
+        errors.push(`Утопление матраса (${params.mr} мм) должно быть меньше высоты царг (${params.th} мм)`);
+      }
+      return errors;
+    }
+
+    function showValidationErrors(errors) {
+      const box = document.getElementById('validation-errors');
+      const list = document.getElementById('error-list');
+      list.innerHTML = '';
+      if (errors.length > 0) {
+        errors.forEach((error) => {
+          const li = document.createElement('li');
+          li.textContent = error;
+          list.appendChild(li);
+        });
+        box.classList.add('show');
+        return false;
+      }
+      box.classList.remove('show');
+      return true;
+    }
+
+    function updatePreview() {
+      const params = getCurrentParams();
+      const errors = validateParams(params);
+      showValidationErrors(errors);
+      drawTopView(params);
+      drawSideView(params);
+      updateDimensions(params);
+    }
+
+    function clearCanvas(canvas) {
+      const ctx = canvas.getContext('2d');
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      return ctx;
+    }
+
+    function drawRect(ctx, x, y, w, h, color) {
+      ctx.fillStyle = color;
+      ctx.fillRect(x, y, w, h);
+    }
+
+    function drawTopView(p) {
+      const canvas = document.getElementById('preview-top');
+      const ctx = clearCanvas(canvas);
+      const w = canvas.width;
+      const h = canvas.height;
+      if (!p.mw || !p.ml || !p.th || !p.tt) return;
+
+      const frameW = p.mw + 2 * p.mo + 2 * p.tt;
+      const frameL = p.ml + 2 * p.mo + 2 * p.tt;
+      const minX = p.shb === 'Да' && p.shp === 'Слева' ? -p.sht : 0;
+      const maxX = p.shb === 'Да' && p.shp === 'Справа' ? frameW + p.sht : frameW;
+      const minY = p.shb === 'Да' ? -p.seb : 0;
+      const maxY = Math.max(
+        p.hb === 'Да' ? frameL + p.ht : frameL,
+        p.shb === 'Да' ? frameL + p.sef : frameL
+      );
+      const modelW = maxX - minX;
+      const modelL = maxY - minY;
+      const scale = Math.min((w - 42) / modelW, (h - 42) / modelL);
+      const ox = (w - modelW * scale) / 2 - minX * scale;
+      const oy = (h - modelL * scale) / 2 - minY * scale;
+
+      ctx.save();
+      // Вид сверху развернут так, чтобы спинка была сверху.
+      ctx.translate(ox, oy + maxY * scale);
+      ctx.scale(scale, -scale);
+
+      drawRect(ctx, 0, 0, frameW, p.tt, '#d4a574');
+      drawRect(ctx, 0, frameL - p.tt, frameW, p.tt, '#d4a574');
+      drawRect(ctx, 0, 0, p.tt, frameL, '#d4a574');
+      drawRect(ctx, frameW - p.tt, 0, p.tt, frameL, '#d4a574');
+
+      if (p.dt === 'Да') {
+        drawRect(ctx, p.tt, p.tt, frameW - 2 * p.tt, p.tt, '#c49563');
+        drawRect(ctx, p.tt, frameL - 2 * p.tt, frameW - 2 * p.tt, p.tt, '#c49563');
+        drawRect(ctx, p.tt, p.tt, p.tt, frameL - 2 * p.tt, '#c49563');
+        drawRect(ctx, frameW - 2 * p.tt, p.tt, p.tt, frameL - 2 * p.tt, '#c49563');
+      }
+
+      drawRect(ctx, p.tt, p.tt, frameW - 2 * p.tt, frameL - 2 * p.tt, '#e8e8e8');
+      drawRect(ctx, p.tt + p.mo, p.tt + p.mo, p.mw, p.ml, '#b0c4de');
+
+      if (p.st === 'Центральная царга') {
+        if (p.co === 'Вдоль') {
+          drawRect(ctx, frameW / 2 - p.tt / 2, p.tt, p.tt, frameL - 2 * p.tt, '#8b7355');
+        } else {
+          drawRect(ctx, p.tt, frameL / 2 - p.tt / 2, frameW - 2 * p.tt, p.tt, '#8b7355');
+        }
+      }
+
+      if (p.hb === 'Да') drawRect(ctx, -p.he, frameL, frameW + 2 * p.he, p.ht, '#6b5344');
+      if (p.shb === 'Да') {
+        const sx = p.shp === 'Слева' ? -p.sht : frameW;
+        drawRect(ctx, sx, -p.seb, p.sht, frameL + p.seb + p.sef, '#6b5344');
+      }
+
+      ctx.fillStyle = '#4a4a4a';
+      [[p.tt, p.tt], [frameW - p.tt, p.tt], [p.tt, frameL - p.tt], [frameW - p.tt, frameL - p.tt]].forEach((pos) => {
+        ctx.beginPath();
+        ctx.arc(pos[0], pos[1], 15, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      if (p.as === 'Да') {
+        ctx.fillStyle = '#7f8c8d';
+        [[p.tt + 45, frameL * 0.25], [p.tt + 45, frameL * 0.75], [frameW - p.tt - 65, frameL * 0.25], [frameW - p.tt - 65, frameL * 0.75]].forEach((pos) => {
+          ctx.fillRect(pos[0], pos[1], 20, 45);
+        });
+      }
+
+      if (p.af === 'Да') {
+        ctx.fillStyle = '#566573';
+        [[p.tt, p.tt], [frameW - p.tt - 45, p.tt], [p.tt, frameL - p.tt - 45], [frameW - p.tt - 45, frameL - p.tt - 45]].forEach((pos) => {
+          ctx.fillRect(pos[0], pos[1], 45, 12);
+          ctx.fillRect(pos[0], pos[1], 12, 45);
+        });
+      }
+
+      ctx.restore();
+      ctx.font = '9px sans-serif';
+      ctx.fillStyle = '#2c3e50';
+      ctx.textAlign = 'center';
+      ctx.fillText(`${Math.round(frameW)} мм`, w / 2, h - 4);
+      ctx.save();
+      ctx.translate(9, h / 2);
+      ctx.rotate(-Math.PI / 2);
+      ctx.fillText(`${Math.round(frameL)} мм`, 0, 0);
+      ctx.restore();
+    }
+
+    function drawSideView(p) {
+      const canvas = document.getElementById('preview-side');
+      const ctx = clearCanvas(canvas);
+      const w = canvas.width;
+      const h = canvas.height;
+      if (!p.mw || !p.ml || !p.th || !p.lh) return;
+
+      const frameL = p.ml + 2 * p.mo + 2 * p.tt;
+      const totalH = p.lh + p.th;
+      const maxH = Math.max(totalH + 120, p.hb === 'Да' ? p.hh : 0, p.shb === 'Да' ? p.shh : 0);
+      const minX = p.shb === 'Да' ? -p.seb - 20 : -20;
+      const maxX = Math.max(
+        frameL + 20,
+        p.hb === 'Да' ? frameL + p.ht + 20 : frameL + 20,
+        p.shb === 'Да' ? frameL + p.sef + 20 : frameL + 20
+      );
+      const modelW = maxX - minX;
+      const scale = Math.min((w - 46) / modelW, (h - 44) / maxH);
+      const ox = (w - modelW * scale) / 2 - minX * scale;
+      const oy = h - 22;
+
+      ctx.save();
+      // Вид сбоку развернут так, чтобы спинка была слева.
+      ctx.translate(ox + maxX * scale, oy);
+      ctx.scale(-scale, -scale);
+
+      ctx.strokeStyle = '#888';
+      ctx.lineWidth = 1 / scale;
+      ctx.beginPath();
+      ctx.moveTo(minX, 0);
+      ctx.lineTo(maxX, 0);
+      ctx.stroke();
+
+      drawRect(ctx, p.tt, 0, 30, p.lh, '#4a4a4a');
+      if (!(p.hb === 'Да' || p.rf === 'До пола')) {
+        drawRect(ctx, frameL - p.tt - 30, 0, 30, p.lh, '#4a4a4a');
+      }
+      drawRect(ctx, 0, p.lh, frameL, p.th, '#d4a574');
+      drawRect(ctx, 0, p.lh, p.tt, p.th, '#b88452');
+      drawRect(ctx, frameL - p.tt, p.rf === 'До пола' ? 0 : p.lh, p.tt, p.rf === 'До пола' ? totalH : p.th, '#b88452');
+
+      if (p.dt === 'Да') {
+        drawRect(ctx, p.tt, p.lh, frameL - 2 * p.tt, p.tt, '#c49563');
+      }
+
+      if (p.st === 'Центральная царга') {
+        const centerBottom = p.ch === 'До пола' ? 0 : p.lh;
+        const centerHeight = p.cch || (p.ch === 'До пола' ? totalH : p.th);
+        if (p.co === 'Вдоль') {
+          drawRect(ctx, p.tt, centerBottom, frameL - 2 * p.tt, centerHeight, 'rgba(139,115,85,0.65)');
+        } else {
+          drawRect(ctx, frameL / 2 - p.tt / 2, centerBottom, p.tt, centerHeight, '#8b7355');
+        }
+      }
+
+      if (p.hbt === 'Да') {
+        drawRect(ctx, p.tt + p.bo, p.lh + p.bs_h, frameL - 2 * p.tt - 2 * p.bo, p.bt, '#d4a574');
+      }
+
+      if (p.as === 'Да') {
+        const msLength = Math.min(p.ms_l || 600, frameL - 2 * p.tt);
+        const msHeight = p.ms_h || 30;
+        drawRect(ctx, p.tt + 120, totalH - p.mr - msHeight, msLength, msHeight, '#7f8c8d');
+      }
+      if (p.af === 'Да') {
+        drawRect(ctx, p.tt, p.lh + 20, 55, 35, '#566573');
+        drawRect(ctx, frameL - p.tt - 55, p.lh + 20, 55, 35, '#566573');
+      }
+
+      const mattressY = totalH - p.mr;
+      drawRect(ctx, p.tt + p.mo, mattressY, p.ml, 100, '#b0c4de');
+
+      if (p.hb === 'Да') {
+        drawRect(ctx, frameL, 0, p.ht, p.hh, '#6b5344');
+      }
+      if (p.shb === 'Да') {
+        drawRect(ctx, -p.seb, 0, frameL + p.seb + p.sef, p.shh, 'rgba(107,83,68,0.45)');
+      }
+
+      ctx.restore();
+      ctx.font = '9px sans-serif';
+      ctx.fillStyle = '#2c3e50';
+      ctx.textAlign = 'right';
+      ctx.fillText(`Ножки: ${p.lh} мм`, w - 8, oy - (p.lh * scale / 2));
+      ctx.fillText(`Царги: ${p.th} мм`, w - 8, oy - ((p.lh + p.th / 2) * scale));
+      if (p.hb === 'Да') ctx.fillText(`Спинка: ${p.hh} мм`, w - 8, oy - (p.hh * scale / 2));
+    }
+
+    function updateDimensions(p) {
+      const info = [];
+      info.push(`Тип основания: ${p.st}`);
+      if (p.st === 'Центральная царга') {
+        info.push(`Центр. царга: низ — ${p.ch}, высота — ${Math.round(p.cch || 0)} мм`);
+        info.push(`Ориентация: ${p.co}`);
+      }
+      info.push(`Двойные царги: ${p.dt}`);
+      info.push(`Задняя царга: ${p.rf}`);
+      info.push(`Изголовье: ${p.hb}`);
+      info.push(`Боковая спинка: ${p.shb}${p.shb === 'Да' ? `, ${p.shp.toLowerCase()}` : ''}`);
+      info.push(`Дно: ${p.hbt}`);
+      if (p.hbt === 'Да') info.push(`Бруски для дна: ${Math.round(p.bs_l || 0)}×${Math.round(p.bs_h || 0)}×${Math.round(p.bs_t || 0)} мм`);
+      if (p.as === 'Да') info.push(`Бруски матраса: ${Math.round(p.ms_l || 0)}×${Math.round(p.ms_h || 0)}×${Math.round(p.ms_t || 0)} мм`);
+      const fittings = [];
+      if (p.as === 'Да') fittings.push('опорные бруски матраса');
+      if (p.af === 'Да') fittings.push('стяжка уголки');
+      info.push(`Фурнитура: ${fittings.length ? fittings.join(', ') : 'нет'}`);
+      document.getElementById('dims-text').innerHTML = info.join('<br>');
+    }
+
+    function submitForm() {
+      const params = getCurrentParams();
+      const errors = validateParams(params);
+      if (!showValidationErrors(errors)) {
+        alert('Пожалуйста, исправьте ошибки перед созданием кровати');
+        return;
+      }
+      sketchup.ok(JSON.stringify(params));
+    }
+
+    function generateCuttingList() {
+      const params = getCurrentParams();
+      const errors = validateParams(params);
+      if (errors.length > 0) {
+        alert('Исправьте ошибки перед генерацией карты раскроя:\n\n' + errors.join('\n'));
+        return;
+      }
+      sketchup.cutting(JSON.stringify(params));
+    }
+
+    updatePreview();
+  </script>
+</body>
+</html>
